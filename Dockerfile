@@ -1,19 +1,30 @@
-FROM ubuntu:latest as build
+FROM ubuntu:20.04 as build
+ARG COCKROACH_VERSION
 RUN apt-get update
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get -y upgrade
 RUN apt-get -y install gcc golang cmake autoconf wget bison libncurses-dev
-RUN wget -qO- https://binaries.cockroachdb.com/cockroach-v20.2.0.src.tgz | tar  xvz
-WORKDIR cockroach-v20.2.0
+RUN wget -qO- https://binaries.cockroachdb.com/cockroach-v${COCKROACH_VERSION}.src.tgz | tar xvz
+WORKDIR /cockroach-v${COCKROACH_VERSION}
 RUN make build
 RUN make install
 
-FROM ubuntu:latest
-RUN apt-get update && apt-get -y upgrade && apt-get install -y libc6 ca-certificates tzdata && rm -rf /var/lib/apt/lists/*
-WORKDIR /cockroach/
-ENV PATH=/cockroach:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ENV COCKROACH_CHANNEL=kubernetes-insecure
-RUN mkdir -p /cockroach/
-COPY --from=build /usr/local/bin/cockroach /cockroach/cockroach
+FROM ubuntu:20.04
+ARG COCKROACH_VERSION
+RUN apt-get update && \
+    apt-get -y upgrade && \
+    apt-get install -y libc6 ca-certificates tzdata && \
+    rm -rf /var/lib/apt/lists/* && \
+    mkdir /cockroach && \
+    mkdir /usr/local/lib/cockroach
+
+WORKDIR /cockroach
+ENV PATH=/cockroach:$PATH
+
+COPY --from=build /usr/local/bin/cockroach /cockroach
+COPY --from=build /cockroach-v${COCKROACH_VERSION}/src/github.com/cockroachdb/cockroach/lib/libgeos.so /cockroach-v${COCKROACH_VERSION}/src/github.com/cockroachdb/cockroach/lib/libgeos_c.so /usr/local/lib/cockroach/ 
+
+COPY cockroach.sh /cockroach
+
 EXPOSE 26257 8080
-ENTRYPOINT ["/cockroach/cockroach"]
+ENTRYPOINT ["/cockroach/cockroach.sh"]
