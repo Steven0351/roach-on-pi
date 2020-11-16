@@ -38,7 +38,7 @@ jobs:
         push: true
         context: .
         file: Dockerfile
-        platforms: ${{ steps.buildx.outputs.platforms }}
+        platforms: linux/arm64,linux/amd64
         build-args: |
           COCKROACH_VERSION=${{ steps.cockroach-version.outputs.cockroach_version }}
         tags: |
